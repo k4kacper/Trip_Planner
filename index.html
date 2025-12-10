@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Planer Wycieczki</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+<div class="app">
+
+  <!-- =========================
+       TOP BAR
+  ========================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <h1>Planer Wycieczki</h1>
+    </div>
+
+    <div class="actions">
+      <select id="currency">
+        <option>PLN</option><option>EUR</option><option>USD</option>
+      </select>
+
+      <input id="custom-currency" placeholder="Kod waluty">
+      <button id="add-custom-currency" class="btn ghost">Dodaj</button>
+
+      <button id="export-json" class="btn ghost">JSON</button>
+      <button id="import-json" class="btn ghost">Import</button>
+      <button id="export-pdf" class="btn ghost">PDF</button>
+      <button id="save-local" class="btn">Zapisz</button>
+    </div>
+  </header>
+
+
+  <main>
+
+    <!-- =========================
+         BUDŻET
+    ========================== -->
+    <section class="card" id="budget-card">
+      <h2>Budżet</h2>
+
+      <div class="row2">
+        <input id="budget-target" type="number" placeholder="Cel budżetu">
+        <input id="people-count" type="number" min="1" value="1" placeholder="Osoby">
+      </div>
+
+      <div class="row4">
+        <input id="expense-name" placeholder="Nazwa">
+        <select id="expense-category">
+          <option>Transport</option><option>Nocleg</option><option>Jedzenie</option><option>Atrakcje</option><option>Inne</option>
+        </select>
+        <input id="expense-amount" type="number" placeholder="Kwota">
+        <button id="add-expense" class="btn">Dodaj</button>
+      </div>
+
+      <div class="row3">
+        <input id="search-expenses" placeholder="Szukaj...">
+        <select id="filter-category">
+          <option value="">Wszystkie</option>
+          <option>Transport</option><option>Nocleg</option><option>Jedzenie</option><option>Atrakcje</option><option>Inne</option>
+        </select>
+        <button id="reset-filters" class="btn ghost">Reset</button>
+      </div>
+
+      <div id="expenses-list" class="list"></div>
+
+      <div class="summary">
+        <div>
+          <div>Suma: <strong id="total-amount">0.00</strong> <span id="currency-label">PLN</span></div>
+          <div>Na osobę: <span id="per-person">0.00</span></div>
+        </div>
+        <div class="progress"><div id="budget-progress"></div></div>
+      </div>
+
+      <div class="breakdown">
+        <canvas id="chart"></canvas>
+        <div id="category-breakdown"></div>
+      </div>
+    </section>
+
+
+    <!-- =========================
+         KONWERTER WALUT
+    ========================== -->
+    <section class="card">
+      <h2>Waluty</h2>
+
+      <div class="row3">
+        <input id="conv-amount" type="number" placeholder="Kwota">
+        <select id="conv-from"></select>
+        <select id="conv-to"></select>
+      </div>
+
+      <div class="row">
+        <button id="conv-do" class="btn">Przelicz</button>
+        <button id="conv-refresh" class="btn ghost">Odśwież</button>
+        <span id="conv-result"></span>
+      </div>
+
+      <div id="conv-note" class="note"></div>
+    </section>
+
+
+    <!-- =========================
+         PLAN DNIA
+    ========================== -->
+    <section class="card">
+      <h2>Plan wycieczki</h2>
+
+      <div class="row">
+        <input id="new-day-name" placeholder="Nazwa dnia">
+        <button id="add-day" class="btn ghost">Dodaj</button>
+      </div>
+
+      <div id="days-container" class="days"></div>
+    </section>
+
+
+    <!-- =========================
+         TRASA
+    ========================== -->
+    <section class="card">
+      <h2>Trasa</h2>
+
+      <div class="row5">
+        <select id="segment-type">
+          <option value="flight">Lot</option>
+          <option value="car">Auto</option>
+        </select>
+
+        <input id="segment-from" placeholder="Skąd">
+        <input id="segment-to" placeholder="Dokąd">
+        <input id="segment-cost" type="number" placeholder="Koszt">
+        <input id="segment-note" placeholder="Notatka">
+      </div>
+
+      <button id="add-segment" class="btn" style="margin-top:6px">Dodaj</button>
+
+      <div id="segments-list" class="list"></div>
+
+      <div class="sum-row">
+        Suma: <strong id="route-total">0.00</strong> <span id="currency-label2">PLN</span>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- MODAL EDYCJI -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-panel">
+      <h3>Edycja</h3>
+
+      <input id="modal-name">
+      <select id="modal-category">
+        <option>Transport</option><option>Nocleg</option><option>Jedzenie</option><option>Atrakcje</option><option>Inne</option>
+      </select>
+      <input id="modal-amount" type="number">
+
+      <div class="row">
+        <button id="modal-cancel" class="btn ghost">Anuluj</button>
+        <button id="modal-save" class="btn">Zapisz</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+/* ========================================================
+   GLOBAL RESETS & BASE
+======================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: Inter, system-ui, sans-serif;
+  background: radial-gradient(circle at top, #0f172a 0%, #09101f 50%, #050914 100%);
+  color: #e2e8f0;
+  overflow-x: hidden;
+}
+
+/* Global spacing */
+body {
+  padding: 32px; /* requested margin for entire page */
+  margin: 0 10% 0 10%;
+}
+
+/* Background glow */
+body::before {
+  content: "";
+  position: fixed;
+  left: -200px;
+  top: -200px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(0,255,255,0.18), transparent 70%);
+  filter: blur(150px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ========================================================
+   ANIMATIONS
+======================================================== */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(22px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes glowPulse {
+  0%   { box-shadow: 0 0 10px rgba(0,234,255,0.25); }
+  50%  { box-shadow: 0 0 18px rgba(0,234,255,0.75); }
+  100% { box-shadow: 0 0 10px rgba(0,234,255,0.25); }
+}
+
+/* ========================================================
+   LAYOUT
+======================================================== */
+
+.app {
+  max-width: 1200px;
+  margin: auto;
+  animation: fadeIn 0.9s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ========================================================
+   TOPBAR
+======================================================== */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #00eaff, #7b2ff7);
+  box-shadow: 0 0 16px #00eaffa0;
+}
+
+/* buttons row */
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ========================================================
+   INPUTS / BUTTONS (with universal margin)
+======================================================== */
+
+input,
+select,
+textarea,
+button {
+  margin: 8px 0;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+/* inputs */
+input,
+select,
+textarea {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  color: #e2e8f0;
+  backdrop-filter: blur(8px);
+  transition: .25s;
+}
+
+input::placeholder {
+  color: #94a3b8;
+}
+
+input:focus,
+select:focus {
+  border-color: #00eaff;
+  box-shadow: 0 0 14px #00eaff66;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+/* buttons */
+.btn {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #00eaff, #7b2ff7);
+  color: #fff;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 18px #00eaffaa;
+}
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid #00eaff88;
+  color: #00eaff;
+}
+
+.btn.ghost:hover {
+  background: #00eaff22;
+  box-shadow: 0 0 12px #00eaff77;
+}
+
+/* ========================================================
+   CARDS / BLOCKS (margin added globally)
+======================================================== */
+
+.card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 24px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  margin: 24px 0; /* required block spacing */
+  animation: cardReveal 0.9s ease;
+}
+
+/* ========================================================
+   GRID HELPERS
+======================================================== */
+
+.row  { display: grid; grid-template-columns: 1fr auto; gap: 14px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.row4 { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 14px; }
+.row5 { display: grid; grid-template-columns: 110px 1fr 1fr 100px 1fr; gap: 14px; }
+
+/* ========================================================
+   LISTS, ITEMS
+======================================================== */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.item {
+  padding: 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ========================================================
+   PROGRESS BAR
+======================================================== */
+
+.progress {
+  height: 10px;
+  width: 220px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+#budget-progress {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #00eaff, #7b2ff7);
+  transition: width .5s ease;
+}
+
+/* ========================================================
+   BREAKDOWN / CHART
+======================================================== */
+
+.breakdown {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+#chart {
+  width: 200px;
+  height: 200px;
+  filter: drop-shadow(0 0 8px #00eaff66);
+}
+
+/* ========================================================
+   DAYS / ITINERARY
+======================================================== */
+
+.day {
+  background: rgba(255,255,255,0.05);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+/* ========================================================
+   MODAL
+======================================================== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-panel {
+  width: 320px;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.12);
+  animation: fadeIn 0.25s ease;
+}
+
+/* ========================================================
+   MOBILE OPTIMIZATION
+======================================================== */
+
+@media (max-width: 780px) {
+
+  body {
+    padding: 18px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .row,
+  .row2,
+  .row3,
+  .row4,
+  .row5 {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 20px;
+  }
+
+  #chart {
+    width: 160px;
+    height: 160px;
+  }
+}
