@@ -325,3 +325,38 @@ select:focus {
     height: 160px;
   }
 }
+
+/* ========================================================
+   PRINT / PDF EXPORT
+======================================================== */
+
+@media print {
+
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+  }
+
+  .topbar,
+  .actions,
+  button,
+  input,
+  select {
+    display: none !important;
+  }
+
+  .card {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    margin: 12px 0 !important;
+    page-break-inside: avoid;
+  }
+
+  .app {
+    padding: 0 !important;
+  }
+}
+

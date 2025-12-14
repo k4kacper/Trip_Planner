@@ -336,13 +336,16 @@ function wire(){
   };
 
   // PDF export (simple: print main content)
-  $('export-pdf').onclick = ()=>{
-    const w = window.open('','_blank','noopener');
-    if(!w){ alert('Popup zablokowany'); return; }
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Plan</title><link rel="stylesheet" href="styles.css"></head><body><main>${document.querySelector('main').innerHTML}</main></body></html>`);
-    setTimeout(()=>{ w.print(); },600);
-  };
-}
+  $("export-pdf").onclick = () => {
+  // chwilowa klasa, jeśli chcesz dodatkowej kontroli
+  document.body.classList.add("print-mode");
+
+  setTimeout(() => {
+    window.print();
+    document.body.classList.remove("print-mode");
+  }, 100);
+};
+
 
 /* ---------- aggregate render ---------- */
 function renderAll(){
