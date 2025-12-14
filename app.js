@@ -1,16 +1,12 @@
 /* =========================================================
-   app.js — FINAL STABLE VERSION
-   ✔ FIXED budget indicator
-   ✔ FIXED donut chart (HiDPI + resize)
-   ✔ currencies + custom currencies
-   ✔ PDF export
+   app.js — FULL FINAL VERSION
 ========================================================= */
 
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = v => Number(v || 0).toFixed(2);
 
-/* ---------------- CONFIG ---------------- */
+/* ================= CONFIG ================= */
 
 const LS_STATE = "trip_state_v1";
 const LS_CUSTOM = "trip_custom_currencies_v1";
@@ -20,7 +16,17 @@ const RATES_TTL = 1000 * 60 * 60;
 const API_MAIN = "https://api.exchangerate.host";
 const API_FB = "https://api.frankfurter.app";
 
-/* ---------------- STATE ---------------- */
+/* ================= COLORS ================= */
+
+const CATEGORY_COLORS = {
+  Transport: "#00eaff",
+  Nocleg: "#7b2ff7",
+  Jedzenie: "#10b981",
+  Atrakcje: "#fb923c",
+  Inne: "#f43f5e"
+};
+
+/* ================= STATE ================= */
 
 let state = {
   expenses: [],
@@ -31,19 +37,18 @@ let state = {
   people: 1
 };
 
-/* ---------------- STORAGE ---------------- */
+/* ================= STORAGE ================= */
 
 function loadState() {
   try {
     Object.assign(state, JSON.parse(localStorage.getItem(LS_STATE)) || {});
   } catch {}
 }
-
 function saveState() {
   localStorage.setItem(LS_STATE, JSON.stringify(state));
 }
 
-/* ---------------- CURRENCY ---------------- */
+/* ================= CURRENCY ================= */
 
 async function fetchJSON(url) {
   const r = await fetch(url);
@@ -57,9 +62,7 @@ function readRates(base) {
     const rec = all[base];
     if (!rec || Date.now() - rec.t > RATES_TTL) return null;
     return rec.rates;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function writeRates(base, rates) {
@@ -73,75 +76,75 @@ async function convertCurrency(from, to, amount) {
   if (cached && cached[to]) {
     return { rate: cached[to], result: cached[to] * amount };
   }
-
   try {
     const d = await fetchJSON(`${API_MAIN}/convert?from=${from}&to=${to}&amount=${amount}`);
     const latest = await fetchJSON(`${API_MAIN}/latest?base=${from}`);
     if (latest?.rates) writeRates(from, latest.rates);
     return { rate: d.info.rate, result: d.result };
   } catch {}
-
   const fb = await fetchJSON(`${API_FB}/latest?from=${from}&to=${to}`);
   writeRates(from, fb.rates);
   return { rate: fb.rates[to], result: fb.rates[to] * amount };
 }
 
-/* ---------------- RENDER ---------------- */
+/* ================= RENDER: BUDGET ================= */
 
 function renderBudgetIndicator(total) {
   const bar = $("budget-progress");
   if (!bar) return;
 
-  if (!state.budgetTarget || state.budgetTarget <= 0) {
+  if (!state.budgetTarget) {
     bar.style.width = "0%";
-    bar.style.background = "linear-gradient(90deg,#00eaff,#7b2ff7)";
     return;
   }
-
-  const percent = Math.min(100, Math.round((total / state.budgetTarget) * 100));
-  bar.style.width = percent + "%";
-
+  const pct = Math.min(100, (total / state.budgetTarget) * 100);
+  bar.style.width = pct + "%";
   bar.style.background =
     total > state.budgetTarget
       ? "linear-gradient(90deg,#ef4444,#dc2626)"
       : "linear-gradient(90deg,#00eaff,#7b2ff7)";
 }
 
+/* ================= EXPENSES ================= */
+
 function renderExpenses() {
   const list = $("expenses-list");
   list.innerHTML = "";
+  let total = 0;
 
-  const q = $("search-expenses").value.toLowerCase();
-  const cat = $("filter-category").value;
+  state.expenses.forEach(e => {
+    total += Number(e.amount);
+    const color = CATEGORY_COLORS[e.category] || "#64748b";
 
-  state.expenses
-    .filter(e => (!q || e.name.toLowerCase().includes(q)) && (!cat || e.category === cat))
-    .forEach(e => {
-      const d = document.createElement("div");
-      d.className = "item";
-      d.innerHTML = `
-        <div><strong>${e.name}</strong><div>${e.category}</div></div>
-        <div>
-          ${fmt(e.amount)} ${state.currency}
-          <button class="btn ghost" data-edit="${e.id}">Edytuj</button>
-          <button class="btn ghost" data-del="${e.id}">Usuń</button>
-        </div>`;
-      list.appendChild(d);
-    });
+    const d = document.createElement("div");
+    d.className = "item";
+    d.style.background = color + "22";
+    d.style.borderLeft = `6px solid ${color}`;
 
-  const total = state.expenses.reduce((s, e) => s + Number(e.amount), 0);
+    d.innerHTML = `
+      <div>
+        <strong>${e.name}</strong>
+        <div style="font-size:12px">${e.category}</div>
+      </div>
+      <div>
+        ${fmt(e.amount)} ${state.currency}
+        <button class="btn ghost" data-del="${e.id}">✕</button>
+      </div>
+    `;
+    list.appendChild(d);
+  });
 
   $("total-amount").textContent = fmt(total);
   $("per-person").textContent = fmt(total / (state.people || 1));
   $("currency-label").textContent = state.currency;
-
   renderBudgetIndicator(total);
 }
+
+/* ================= DAYS ================= */
 
 function renderDays() {
   const c = $("days-container");
   c.innerHTML = "";
-
   state.days.forEach(d => {
     const el = document.createElement("div");
     el.className = "day";
@@ -149,46 +152,49 @@ function renderDays() {
       <strong>${d.name}</strong>
       <ul>
         ${d.activities.map(a =>
-          `<li>${a.text} <button class="btn ghost" data-delact="${d.id}:${a.id}">–</button></li>`
-        ).join("")}
+          `<li>${a.text}
+            <button class="btn ghost" data-delact="${d.id}:${a.id}">–</button>
+          </li>`).join("")}
       </ul>
       <div class="row">
-        <input placeholder="Nowa aktywność" data-actinput="${d.id}">
-        <button class="btn" data-addact="${d.id}">Dodaj</button>
-        <button class="btn ghost" data-deld="${d.id}">Usuń</button>
+        <input placeholder="Aktywność" data-act="${d.id}">
+        <button class="btn" data-add="${d.id}">Dodaj</button>
+        <button class="btn ghost" data-del="${d.id}">Usuń</button>
       </div>`;
     c.appendChild(el);
   });
 }
 
+/* ================= ROUTE ================= */
+
 function renderSegments() {
   const l = $("segments-list");
   l.innerHTML = "";
+  let total = 0;
 
   state.segments.forEach(s => {
+    total += Number(s.cost);
     const d = document.createElement("div");
     d.className = "item";
     d.innerHTML = `
-      <div><strong>${s.type}</strong> ${s.from} → ${s.to}<div>${s.note || ""}</div></div>
+      <div><strong>${s.type}</strong> ${s.from} → ${s.to}</div>
       <div>${fmt(s.cost)} ${state.currency}
-        <button class="btn ghost" data-delseg="${s.id}">Usuń</button>
+        <button class="btn ghost" data-del="${s.id}">✕</button>
       </div>`;
     l.appendChild(d);
   });
 
-  $("route-total").textContent = fmt(
-    state.segments.reduce((s, x) => s + Number(x.cost), 0)
-  );
+  $("route-total").textContent = fmt(total);
 }
 
-/* ---------------- DONUT CHART ---------------- */
+/* ================= DONUT CHART ================= */
 
 function drawChart() {
   const canvas = $("chart");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
-  const size = Math.min(canvas.clientWidth || 200, 220);
+  const size = Math.min(canvas.clientWidth || 220, 240);
   const dpr = window.devicePixelRatio || 1;
 
   canvas.width = size * dpr;
@@ -198,13 +204,12 @@ function drawChart() {
 
   const sums = {};
   state.expenses.forEach(e => {
-    if (e.amount > 0) sums[e.category] = (sums[e.category] || 0) + Number(e.amount);
+    sums[e.category] = (sums[e.category] || 0) + Number(e.amount);
   });
 
   const entries = Object.entries(sums);
   if (!entries.length) {
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "14px system-ui";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("Brak wydatków", size / 2, size / 2);
@@ -214,26 +219,106 @@ function drawChart() {
   const total = entries.reduce((s, [, v]) => s + v, 0);
   let angle = -Math.PI / 2;
 
-  const colors = ["#00eaff", "#7b2ff7", "#10b981", "#fb923c", "#f43f5e"];
+  entries.forEach(([cat, val]) => {
+    const slice = (val / total) * Math.PI * 2;
+    const color = CATEGORY_COLORS[cat] || "#64748b";
 
-  entries.forEach(([_, v], i) => {
-    const slice = (v / total) * Math.PI * 2;
     ctx.beginPath();
     ctx.moveTo(size / 2, size / 2);
-    ctx.arc(size / 2, size / 2, size / 2 - 10, angle, angle + slice);
-    ctx.closePath();
-    ctx.fillStyle = colors[i % colors.length];
+    ctx.arc(size / 2, size / 2, size / 2 - 12, angle, angle + slice);
+    ctx.fillStyle = color;
     ctx.fill();
+
+    const mid = angle + slice / 2;
+    const r = size / 2.6;
+    ctx.fillStyle = "#fff";
+    ctx.font = "12px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      `${cat} ${Math.round((val / total) * 100)}%`,
+      size / 2 + Math.cos(mid) * r,
+      size / 2 + Math.sin(mid) * r
+    );
     angle += slice;
   });
 
   ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 3, 0, Math.PI * 2);
+  ctx.arc(size / 2, size / 2, size / 3.2, 0, Math.PI * 2);
   ctx.fillStyle = "#0b1220";
   ctx.fill();
 }
 
-/* ---------------- RENDER ALL ---------------- */
+/* ================= EVENTS ================= */
+
+function bindEvents() {
+
+  $("add-expense").onclick = () => {
+    state.expenses.push({
+      id: uid(),
+      name: $("expense-name").value,
+      category: $("expense-category").value,
+      amount: Number($("expense-amount").value)
+    });
+    saveState(); renderAll();
+  };
+
+  $("expenses-list").onclick = e => {
+    if (e.target.dataset.del) {
+      state.expenses = state.expenses.filter(x => x.id !== e.target.dataset.del);
+      saveState(); renderAll();
+    }
+  };
+
+  $("add-day").onclick = () => {
+    state.days.push({ id: uid(), name: $("new-day-name").value, activities: [] });
+    saveState(); renderAll();
+  };
+
+  $("days-container").onclick = e => {
+    if (e.target.dataset.add) {
+      const id = e.target.dataset.add;
+      const i = document.querySelector(`[data-act="${id}"]`);
+      state.days.find(d => d.id === id).activities.push({ id: uid(), text: i.value });
+    }
+    if (e.target.dataset.del) {
+      state.days = state.days.filter(d => d.id !== e.target.dataset.del);
+    }
+    saveState(); renderAll();
+  };
+
+  $("add-segment").onclick = () => {
+    state.segments.push({
+      id: uid(),
+      type: $("segment-type").value,
+      from: $("segment-from").value,
+      to: $("segment-to").value,
+      cost: Number($("segment-cost").value)
+    });
+    saveState(); renderAll();
+  };
+
+  $("segments-list").onclick = e => {
+    if (e.target.dataset.del) {
+      state.segments = state.segments.filter(s => s.id !== e.target.dataset.del);
+      saveState(); renderAll();
+    }
+  };
+
+  $("budget-target").oninput = e => {
+    state.budgetTarget = Number(e.target.value || 0);
+    saveState(); renderAll();
+  };
+
+  $("people-count").oninput = e => {
+    state.people = Math.max(1, Number(e.target.value || 1));
+    saveState(); renderAll();
+  };
+
+  $("export-pdf").onclick = () => setTimeout(() => window.print(), 100);
+}
+
+/* ================= INIT ================= */
 
 function renderAll() {
   renderExpenses();
@@ -242,132 +327,7 @@ function renderAll() {
   drawChart();
 }
 
-/* ---------------- EVENTS ---------------- */
-
-function bindEvents() {
-
-  $("add-expense").onclick = () => {
-    const n = $("expense-name").value.trim();
-    const a = Number($("expense-amount").value);
-    if (!n || a <= 0) return;
-    state.expenses.push({
-      id: uid(),
-      name: n,
-      category: $("expense-category").value,
-      amount: a
-    });
-    saveState();
-    renderAll();
-  };
-
-  $("expenses-list").onclick = e => {
-    const del = e.target.dataset.del;
-    const edit = e.target.dataset.edit;
-
-    if (del) {
-      state.expenses = state.expenses.filter(x => x.id !== del);
-      saveState();
-      renderAll();
-    }
-
-    if (edit) {
-      const ex = state.expenses.find(x => x.id === edit);
-      $("modal-name").value = ex.name;
-      $("modal-category").value = ex.category;
-      $("modal-amount").value = ex.amount;
-      $("modal").classList.remove("hidden");
-
-      $("modal-save").onclick = () => {
-        ex.name = $("modal-name").value;
-        ex.category = $("modal-category").value;
-        ex.amount = Number($("modal-amount").value);
-        $("modal").classList.add("hidden");
-        saveState();
-        renderAll();
-      };
-    }
-  };
-
-  $("modal-cancel").onclick = () => $("modal").classList.add("hidden");
-
-  $("add-day").onclick = () => {
-    state.days.push({
-      id: uid(),
-      name: $("new-day-name").value || `Dzień ${state.days.length + 1}`,
-      activities: []
-    });
-    saveState();
-    renderAll();
-  };
-
-  $("days-container").onclick = e => {
-    const add = e.target.dataset.addact;
-    const del = e.target.dataset.deld;
-    const da = e.target.dataset.delact;
-
-    if (add) {
-      const i = document.querySelector(`[data-actinput="${add}"]`);
-      if (!i.value) return;
-      const d = state.days.find(x => x.id === add);
-      d.activities.push({ id: uid(), text: i.value });
-      saveState();
-      renderAll();
-    }
-
-    if (del) {
-      state.days = state.days.filter(x => x.id !== del);
-      saveState();
-      renderAll();
-    }
-
-    if (da) {
-      const [d, a] = da.split(":");
-      const day = state.days.find(x => x.id === d);
-      day.activities = day.activities.filter(x => x.id !== a);
-      saveState();
-      renderAll();
-    }
-  };
-
-  $("add-segment").onclick = () => {
-    const f = $("segment-from").value.trim();
-    const t = $("segment-to").value.trim();
-    const c = Number($("segment-cost").value);
-    if (!f || !t || c <= 0) return;
-
-    state.segments.push({
-      id: uid(),
-      type: $("segment-type").value,
-      from: f,
-      to: t,
-      cost: c,
-      note: $("segment-note").value
-    });
-    saveState();
-    renderAll();
-  };
-
-  $("segments-list").onclick = e => {
-    const id = e.target.dataset.delseg;
-    if (id) {
-      state.segments = state.segments.filter(x => x.id !== id);
-      saveState();
-      renderAll();
-    }
-  };
-
-  $("currency").onchange = e => {
-    state.currency = e.target.value;
-    saveState();
-    renderAll();
-  };
-
-  $("export-pdf").onclick = () => setTimeout(() => window.print(), 100);
-}
-
-/* ---------------- INIT ---------------- */
-
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   loadState();
   bindEvents();
   renderAll();
