@@ -1,24 +1,29 @@
 /* =========================================================
-   app.js — uproszczony, stabilny, z naprawionym PDF export
-   (druk bieżącej strony + @media print w CSS)
+   app.js — WERSJA POPRAWIONA (pełna)
+   ✔ stabilny wykres Canvas (HiDPI + resize)
+   ✔ działający eksport PDF (window.print)
+   ✔ waluty + własne waluty + konwersja
+   ✔ uproszczona struktura (Opcja 1)
 ========================================================= */
 
-/* ---------- Helpers ---------- */
+/* ================= HELPERS ================= */
+
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = v => Number(v || 0).toFixed(2);
 
-/* ---------- Storage keys ---------- */
+/* ================= KONFIG ================= */
+
 const LS_STATE = "trip_state_v1";
 const LS_CUSTOM = "trip_custom_currencies_v1";
 const LS_RATES = "trip_rates_v1";
 const RATES_TTL = 1000 * 60 * 60;
 
-/* ---------- APIs ---------- */
 const API_MAIN = "https://api.exchangerate.host";
 const API_FB = "https://api.frankfurter.app";
 
-/* ---------- App state ---------- */
+/* ================= STATE ================= */
+
 let state = {
   expenses: [],
   days: [],
@@ -28,9 +33,7 @@ let state = {
   people: 1
 };
 
-/* =========================================================
-   Storage
-========================================================= */
+/* ================= STORAGE ================= */
 
 function loadState() {
   try {
@@ -42,17 +45,15 @@ function saveState() {
   localStorage.setItem(LS_STATE, JSON.stringify(state));
 }
 
-/* =========================================================
-   Currency helpers
-========================================================= */
+/* ================= WALUTY ================= */
 
 async function fetchJSON(url) {
   const r = await fetch(url);
-  if (!r.ok) throw new Error("HTTP error");
+  if (!r.ok) throw new Error("HTTP");
   return r.json();
 }
 
-function readRatesCache(base) {
+function readRates(base) {
   try {
     const all = JSON.parse(localStorage.getItem(LS_RATES) || "{}");
     const rec = all[base];
@@ -63,38 +64,29 @@ function readRatesCache(base) {
   }
 }
 
-function writeRatesCache(base, rates) {
+function writeRates(base, rates) {
   const all = JSON.parse(localStorage.getItem(LS_RATES) || "{}");
   all[base] = { t: Date.now(), rates };
   localStorage.setItem(LS_RATES, JSON.stringify(all));
 }
 
 async function convertCurrency(from, to, amount) {
-  const cached = readRatesCache(from);
+  const cached = readRates(from);
   if (cached && cached[to]) {
     return { rate: cached[to], result: cached[to] * amount };
   }
 
   try {
     const d = await fetchJSON(`${API_MAIN}/convert?from=${from}&to=${to}&amount=${amount}`);
-    if (d && d.result !== undefined) {
-      try {
-        const latest = await fetchJSON(`${API_MAIN}/latest?base=${from}`);
-        if (latest.rates) writeRatesCache(from, latest.rates);
-      } catch {}
-      return { rate: d.info.rate, result: d.result };
-    }
+    const latest = await fetchJSON(`${API_MAIN}/latest?base=${from}`);
+    if (latest?.rates) writeRates(from, latest.rates);
+    return { rate: d.info.rate, result: d.result };
   } catch {}
 
   const fb = await fetchJSON(`${API_FB}/latest?from=${from}&to=${to}`);
-  const rate = fb.rates[to];
-  writeRatesCache(from, fb.rates);
-  return { rate, result: rate * amount };
+  writeRates(from, fb.rates);
+  return { rate: fb.rates[to], result: fb.rates[to] * amount };
 }
-
-/* =========================================================
-   Currency UI
-========================================================= */
 
 async function initCurrencies() {
   const selects = [$("currency"), $("conv-from"), $("conv-to")].filter(Boolean);
@@ -126,7 +118,7 @@ async function initCurrencies() {
 
   $("add-custom-currency").onclick = () => {
     const code = $("custom-currency").value.trim().toUpperCase();
-    if (!code || code.length < 3) return alert("Nieprawidłowy kod waluty");
+    if (code.length < 3) return alert("Nieprawidłowy kod waluty");
     if (!custom.includes(code)) {
       custom.unshift(code);
       localStorage.setItem(LS_CUSTOM, JSON.stringify(custom.slice(0, 30)));
@@ -151,9 +143,7 @@ async function initCurrencies() {
   $("conv-refresh").onclick = initCurrencies;
 }
 
-/* =========================================================
-   Renderers
-========================================================= */
+/* ================= RENDER ================= */
 
 function renderExpenses() {
   const list = $("expenses-list");
@@ -163,10 +153,7 @@ function renderExpenses() {
   const cat = $("filter-category").value;
 
   state.expenses
-    .filter(e =>
-      (!q || e.name.toLowerCase().includes(q)) &&
-      (!cat || e.category === cat)
-    )
+    .filter(e => (!q || e.name.toLowerCase().includes(q)) && (!cat || e.category === cat))
     .forEach(e => {
       const d = document.createElement("div");
       d.className = "item";
@@ -185,9 +172,7 @@ function renderExpenses() {
   $("per-person").textContent = fmt(total / (state.people || 1));
   $("currency-label").textContent = state.currency;
 
-  const pct = state.budgetTarget
-    ? Math.min(100, (total / state.budgetTarget) * 100)
-    : 0;
+  const pct = state.budgetTarget ? Math.min(100, (total / state.budgetTarget) * 100) : 0;
   $("budget-progress").style.width = pct + "%";
 }
 
@@ -230,28 +215,54 @@ function renderSegments() {
   );
 }
 
-function drawChart() {
-  const c = $("chart");
-  if (!c) return;
-  const ctx = c.getContext("2d");
-  const data = {};
-  state.expenses.forEach(e => data[e.category] = (data[e.category] || 0) + Number(e.amount));
-  const entries = Object.entries(data);
-  const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+/* ================= WYKRES (POPRAWIONY) ================= */
 
-  ctx.clearRect(0, 0, 200, 200);
-  let a = -Math.PI / 2;
+function drawChart() {
+  const canvas = $("chart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  const size = Math.min(canvas.clientWidth || 200, 220);
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+
+  const sums = {};
+  state.expenses.forEach(e => {
+    if (e.amount > 0) sums[e.category] = (sums[e.category] || 0) + Number(e.amount);
+  });
+
+  const entries = Object.entries(sums);
+  if (!entries.length) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "14px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Brak wydatków", size / 2, size / 2);
+    return;
+  }
+
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  let angle = -Math.PI / 2;
+
+  const colors = ["#00eaff", "#7b2ff7", "#10b981", "#fb923c", "#f43f5e"];
+
   entries.forEach(([_, v], i) => {
     const slice = (v / total) * Math.PI * 2;
     ctx.beginPath();
-    ctx.moveTo(100, 100);
-    ctx.arc(100, 100, 90, a, a + slice);
-    ctx.fillStyle = ["#00eaff", "#fb923c", "#10b981", "#6366f1"][i % 4];
+    ctx.moveTo(size / 2, size / 2);
+    ctx.arc(size / 2, size / 2, size / 2 - 10, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
-    a += slice;
+    angle += slice;
   });
+
   ctx.beginPath();
-  ctx.arc(100, 100, 50, 0, Math.PI * 2);
+  ctx.arc(size / 2, size / 2, size / 3, 0, Math.PI * 2);
   ctx.fillStyle = "#0b1220";
   ctx.fill();
 }
@@ -263,23 +274,15 @@ function renderAll() {
   drawChart();
 }
 
-/* =========================================================
-   Events
-========================================================= */
+/* ================= EVENTS ================= */
 
 function bindEvents() {
   $("add-expense").onclick = () => {
     const n = $("expense-name").value.trim();
     const a = Number($("expense-amount").value);
     if (!n || a <= 0) return;
-    state.expenses.push({
-      id: uid(),
-      name: n,
-      category: $("expense-category").value,
-      amount: a
-    });
-    saveState();
-    renderAll();
+    state.expenses.push({ id: uid(), name: n, category: $("expense-category").value, amount: a });
+    saveState(); renderAll();
   };
 
   $("expenses-list").onclick = e => {
@@ -316,6 +319,7 @@ function bindEvents() {
     const add = e.target.dataset.addact;
     const del = e.target.dataset.deld;
     const da = e.target.dataset.delact;
+
     if (add) {
       const i = document.querySelector(`[data-actinput="${add}"]`);
       if (!i.value) return;
@@ -387,15 +391,13 @@ function bindEvents() {
     i.click();
   };
 
-  /* === FIXED PDF EXPORT === */
+  /* ✔ NAPRAWIONY EKSPORT PDF */
   $("export-pdf").onclick = () => {
     setTimeout(() => window.print(), 100);
   };
 }
 
-/* =========================================================
-   Init
-========================================================= */
+/* ================= INIT ================= */
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadState();
