@@ -1,7 +1,7 @@
 /* =========================================================
-   app.js — FINAL STABLE VERSION
-   ✔ chart FIXED (always renders, no hole)
-   ✔ currency conversion FIXED (no drift)
+   app.js — FINAL CLEAN VERSION
+   ✔ pie chart WITHOUT labels
+   ✔ currency conversion FIXED (base values)
    ✔ everything else unchanged
 ========================================================= */
 
@@ -33,8 +33,9 @@ let state = {
   days: [],
   segments: [],
   currency: "PLN",
+  baseCurrency: "PLN",
   budgetTarget: 0,
-  budgetTargetBase: null,
+  budgetTargetBase: 0,
   people: 1
 };
 
@@ -66,34 +67,29 @@ async function fetchRates(base) {
   return d.rates;
 }
 
-/* ================= CURRENCY CHANGE (FIXED) ================= */
+/* ================= CURRENCY (FIXED) ================= */
 
 async function changeCurrency(newCurrency) {
   if (newCurrency === state.currency) return;
 
-  const rates = await fetchRates(state.currency);
+  const rates = await fetchRates(state.baseCurrency);
   const rate = rates[newCurrency];
-  if (!rate) return alert("Brak kursu waluty");
+  if (!rate) {
+    alert("Brak kursu waluty");
+    return;
+  }
 
   state.expenses.forEach(e => {
-    if (e.baseAmount == null) {
-      e.baseAmount = e.amount;
-      e.baseCurrency = state.currency;
-    }
     e.amount = e.baseAmount * rate;
   });
 
   state.segments.forEach(s => {
-    if (s.baseCost == null) s.baseCost = s.cost;
     s.cost = s.baseCost * rate;
   });
 
-  if (state.budgetTargetBase == null) {
-    state.budgetTargetBase = state.budgetTarget;
-  }
   state.budgetTarget = state.budgetTargetBase * rate;
-
   state.currency = newCurrency;
+
   saveState();
   renderAll();
 }
@@ -109,8 +105,8 @@ function updateBudgetIndicator(total) {
     return;
   }
 
-  const pct = Math.min(100, (total / state.budgetTarget) * 100);
-  bar.style.width = pct + "%";
+  bar.style.width =
+    Math.min(100, (total / state.budgetTarget) * 100) + "%";
 }
 
 /* ================= EXPENSES ================= */
@@ -149,7 +145,7 @@ function renderExpenses() {
   updateBudgetIndicator(total);
 }
 
-/* ================= CHART (FIXED) ================= */
+/* ================= CHART (NO LABELS) ================= */
 
 function drawChart() {
   const canvas = $("chart");
@@ -170,44 +166,25 @@ function drawChart() {
 
   const sums = {};
   state.expenses.forEach(e => {
-    if (e.amount > 0) sums[e.category] = (sums[e.category] || 0) + e.amount;
+    if (e.amount > 0) {
+      sums[e.category] = (sums[e.category] || 0) + e.amount;
+    }
   });
 
   const entries = Object.entries(sums);
-  if (!entries.length) {
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "14px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Brak wydatków", size / 2, size / 2);
-    return;
-  }
+  if (!entries.length) return;
 
   const total = entries.reduce((s, [, v]) => s + v, 0);
   let angle = -Math.PI / 2;
 
   entries.forEach(([cat, val]) => {
     const slice = (val / total) * Math.PI * 2;
-    const color = CATEGORY_COLORS[cat] || "#64748b";
-
     ctx.beginPath();
     ctx.moveTo(size / 2, size / 2);
     ctx.arc(size / 2, size / 2, size / 2 - 6, angle, angle + slice);
     ctx.closePath();
-    ctx.fillStyle = color;
+    ctx.fillStyle = CATEGORY_COLORS[cat] || "#64748b";
     ctx.fill();
-
-    const mid = angle + slice / 2;
-    ctx.fillStyle = "#fff";
-    ctx.font = "12px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(
-      `${cat} ${Math.round((val / total) * 100)}%`,
-      size / 2 + Math.cos(mid) * (size / 3),
-      size / 2 + Math.sin(mid) * (size / 3)
-    );
-
     angle += slice;
   });
 }
@@ -215,7 +192,10 @@ function drawChart() {
 /* ================= JSON ================= */
 
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const blob = new Blob(
+    [JSON.stringify(state, null, 2)],
+    { type: "application/json" }
+  );
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "trip-plan.json";
@@ -251,8 +231,7 @@ function bindEvents() {
       name,
       category: $("expense-category").value,
       amount,
-      baseAmount: amount,
-      baseCurrency: state.currency
+      baseAmount: amount
     });
 
     saveState();
@@ -269,9 +248,7 @@ function bindEvents() {
 
   $("budget-target").oninput = e => {
     state.budgetTarget = Number(e.target.value || 0);
-    if (state.budgetTargetBase == null) {
-      state.budgetTargetBase = state.budgetTarget;
-    }
+    state.budgetTargetBase = state.budgetTarget;
     saveState();
     renderAll();
   };
@@ -282,9 +259,7 @@ function bindEvents() {
     renderAll();
   };
 
-  $("currency").onchange = e => {
-    changeCurrency(e.target.value);
-  };
+  $("currency").onchange = e => changeCurrency(e.target.value);
 
   $("export-json").onclick = exportJSON;
 
@@ -296,9 +271,8 @@ function bindEvents() {
     input.click();
   };
 
-  $("export-pdf").onclick = () => {
+  $("export-pdf").onclick = () =>
     setTimeout(() => window.print(), 100);
-  };
 }
 
 /* ================= INIT ================= */
