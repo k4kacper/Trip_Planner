@@ -1,8 +1,5 @@
 /* =========================================================
-   app.js — FINAL CLEAN VERSION
-   ✔ pie chart WITHOUT labels
-   ✔ currency conversion FIXED (base values)
-   ✔ everything else unchanged
+   app.js — CLEAN CURRENCY SYSTEM (REWRITTEN)
 ========================================================= */
 
 const $ = id => document.getElementById(id);
@@ -29,13 +26,12 @@ const CATEGORY_COLORS = {
 /* ================= STATE ================= */
 
 let state = {
+  baseCurrency: "PLN",     // STAŁA waluta danych
+  currency: "PLN",         // aktualna waluta UI
   expenses: [],
-  days: [],
   segments: [],
-  currency: "PLN",
-  baseCurrency: "PLN",
-  budgetTarget: 0,
   budgetTargetBase: 0,
+  budgetTarget: 0,
   people: 1
 };
 
@@ -54,53 +50,59 @@ function saveState() {
 
 /* ================= RATES ================= */
 
-async function fetchRates(base) {
+async function getRates(base) {
   const cache = JSON.parse(localStorage.getItem(LS_RATES) || "{}");
   const rec = cache[base];
-  if (rec && Date.now() - rec.t < RATES_TTL) return rec.rates;
 
-  const r = await fetch(`${API}/latest?base=${base}`);
-  const d = await r.json();
+  if (rec && Date.now() - rec.time < RATES_TTL) {
+    return rec.rates;
+  }
 
-  cache[base] = { t: Date.now(), rates: d.rates };
+  const res = await fetch(`${API}/latest?base=${base}`);
+  const data = await res.json();
+
+  cache[base] = { time: Date.now(), rates: data.rates };
   localStorage.setItem(LS_RATES, JSON.stringify(cache));
-  return d.rates;
+
+  return data.rates;
 }
 
-/* ================= CURRENCY (FIXED) ================= */
+/* ================= CURRENCY CONVERSION (NEW) ================= */
 
-async function changeCurrency(newCurrency) {
+async function setCurrency(newCurrency) {
   if (newCurrency === state.currency) return;
 
-  const rates = await fetchRates(state.baseCurrency);
+  const rates = await getRates(state.baseCurrency);
   const rate = rates[newCurrency];
+
   if (!rate) {
-    alert("Brak kursu waluty");
+    alert("Brak kursu dla wybranej waluty");
     return;
   }
 
+  /* --- EXPENSES --- */
   state.expenses.forEach(e => {
     e.amount = e.baseAmount * rate;
   });
 
+  /* --- SEGMENTS --- */
   state.segments.forEach(s => {
     s.cost = s.baseCost * rate;
   });
 
+  /* --- BUDGET --- */
   state.budgetTarget = state.budgetTargetBase * rate;
-  state.currency = newCurrency;
 
+  state.currency = newCurrency;
   saveState();
   renderAll();
 }
 
 /* ================= BUDGET ================= */
 
-function updateBudgetIndicator(total) {
+function updateBudget(total) {
   const bar = $("budget-progress");
-  if (!bar) return;
-
-  if (!state.budgetTarget) {
+  if (!bar || !state.budgetTargetBase) {
     bar.style.width = "0%";
     return;
   }
@@ -117,15 +119,15 @@ function renderExpenses() {
   let total = 0;
 
   state.expenses.forEach(e => {
-    total += Number(e.amount);
+    total += e.amount;
     const color = CATEGORY_COLORS[e.category] || "#64748b";
 
-    const item = document.createElement("div");
-    item.className = "item";
-    item.style.background = color + "22";
-    item.style.borderLeft = `6px solid ${color}`;
+    const d = document.createElement("div");
+    d.className = "item";
+    d.style.background = color + "22";
+    d.style.borderLeft = `6px solid ${color}`;
 
-    item.innerHTML = `
+    d.innerHTML = `
       <div>
         <strong>${e.name}</strong>
         <div style="font-size:12px">${e.category}</div>
@@ -135,17 +137,17 @@ function renderExpenses() {
         <button class="btn ghost" data-del="${e.id}">✕</button>
       </div>
     `;
-    list.appendChild(item);
+    list.appendChild(d);
   });
 
   $("total-amount").textContent = fmt(total);
   $("per-person").textContent = fmt(total / (state.people || 1));
   $("currency-label").textContent = state.currency;
 
-  updateBudgetIndicator(total);
+  updateBudget(total);
 }
 
-/* ================= CHART (NO LABELS) ================= */
+/* ================= CHART ================= */
 
 function drawChart() {
   const canvas = $("chart");
@@ -189,34 +191,6 @@ function drawChart() {
   });
 }
 
-/* ================= JSON ================= */
-
-function exportJSON() {
-  const blob = new Blob(
-    [JSON.stringify(state, null, 2)],
-    { type: "application/json" }
-  );
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "trip-plan.json";
-  a.click();
-}
-
-function importJSON(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      state = { ...state, ...data };
-      saveState();
-      renderAll();
-    } catch {
-      alert("Nieprawidłowy plik JSON");
-    }
-  };
-  reader.readAsText(file);
-}
-
 /* ================= EVENTS ================= */
 
 function bindEvents() {
@@ -230,8 +204,8 @@ function bindEvents() {
       id: uid(),
       name,
       category: $("expense-category").value,
-      amount,
-      baseAmount: amount
+      baseAmount: amount,
+      amount
     });
 
     saveState();
@@ -247,10 +221,8 @@ function bindEvents() {
   };
 
   $("budget-target").oninput = e => {
-    state.budgetTarget = Number(e.target.value || 0);
-    state.budgetTargetBase = state.budgetTarget;
-    saveState();
-    renderAll();
+    state.budgetTargetBase = Number(e.target.value || 0);
+    setCurrency(state.currency);
   };
 
   $("people-count").oninput = e => {
@@ -259,20 +231,7 @@ function bindEvents() {
     renderAll();
   };
 
-  $("currency").onchange = e => changeCurrency(e.target.value);
-
-  $("export-json").onclick = exportJSON;
-
-  $("import-json").onclick = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/json";
-    input.onchange = e => importJSON(e.target.files[0]);
-    input.click();
-  };
-
-  $("export-pdf").onclick = () =>
-    setTimeout(() => window.print(), 100);
+  $("currency").onchange = e => setCurrency(e.target.value);
 }
 
 /* ================= INIT ================= */
@@ -285,6 +244,6 @@ function renderAll() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
   bindEvents();
-  renderAll();
+  setCurrency(state.currency);
   window.addEventListener("resize", drawChart);
 });
