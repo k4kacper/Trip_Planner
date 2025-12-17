@@ -1,5 +1,5 @@
 /* =========================================================
-   app.js — CLEAN CURRENCY SYSTEM (REWRITTEN)
+   app.js — NEW CURRENCY MECHANISM (SIMPLE & SAFE)
 ========================================================= */
 
 const $ = id => document.getElementById(id);
@@ -26,11 +26,9 @@ const CATEGORY_COLORS = {
 /* ================= STATE ================= */
 
 let state = {
-  baseCurrency: "PLN",     // STAŁA waluta danych
-  currency: "PLN",         // aktualna waluta UI
+  currency: "PLN",
   expenses: [],
   segments: [],
-  budgetTargetBase: 0,
   budgetTarget: 0,
   people: 1
 };
@@ -50,48 +48,50 @@ function saveState() {
 
 /* ================= RATES ================= */
 
-async function getRates(base) {
+async function getRate(from, to) {
+  if (from === to) return 1;
+
+  const key = `${from}_${to}`;
   const cache = JSON.parse(localStorage.getItem(LS_RATES) || "{}");
-  const rec = cache[base];
+  const rec = cache[key];
 
   if (rec && Date.now() - rec.time < RATES_TTL) {
-    return rec.rates;
+    return rec.rate;
   }
 
-  const res = await fetch(`${API}/latest?base=${base}`);
+  const res = await fetch(`${API}/convert?from=${from}&to=${to}&amount=1`);
   const data = await res.json();
+  const rate = data.result;
 
-  cache[base] = { time: Date.now(), rates: data.rates };
+  cache[key] = { time: Date.now(), rate };
   localStorage.setItem(LS_RATES, JSON.stringify(cache));
 
-  return data.rates;
+  return rate;
 }
 
-/* ================= CURRENCY CONVERSION (NEW) ================= */
+/* ================= CURRENCY CHANGE (NEW) ================= */
 
-async function setCurrency(newCurrency) {
+async function changeCurrency(newCurrency) {
   if (newCurrency === state.currency) return;
 
-  const rates = await getRates(state.baseCurrency);
-  const rate = rates[newCurrency];
-
-  if (!rate) {
-    alert("Brak kursu dla wybranej waluty");
+  const rate = await getRate(state.currency, newCurrency);
+  if (!rate || !isFinite(rate)) {
+    alert("Nie można pobrać kursu waluty");
     return;
   }
 
   /* --- EXPENSES --- */
   state.expenses.forEach(e => {
-    e.amount = e.baseAmount * rate;
+    e.amount *= rate;
   });
 
   /* --- SEGMENTS --- */
   state.segments.forEach(s => {
-    s.cost = s.baseCost * rate;
+    s.cost *= rate;
   });
 
   /* --- BUDGET --- */
-  state.budgetTarget = state.budgetTargetBase * rate;
+  state.budgetTarget *= rate;
 
   state.currency = newCurrency;
   saveState();
@@ -102,7 +102,7 @@ async function setCurrency(newCurrency) {
 
 function updateBudget(total) {
   const bar = $("budget-progress");
-  if (!bar || !state.budgetTargetBase) {
+  if (!bar || !state.budgetTarget) {
     bar.style.width = "0%";
     return;
   }
@@ -122,12 +122,12 @@ function renderExpenses() {
     total += e.amount;
     const color = CATEGORY_COLORS[e.category] || "#64748b";
 
-    const d = document.createElement("div");
-    d.className = "item";
-    d.style.background = color + "22";
-    d.style.borderLeft = `6px solid ${color}`;
+    const item = document.createElement("div");
+    item.className = "item";
+    item.style.background = color + "22";
+    item.style.borderLeft = `6px solid ${color}`;
 
-    d.innerHTML = `
+    item.innerHTML = `
       <div>
         <strong>${e.name}</strong>
         <div style="font-size:12px">${e.category}</div>
@@ -137,7 +137,7 @@ function renderExpenses() {
         <button class="btn ghost" data-del="${e.id}">✕</button>
       </div>
     `;
-    list.appendChild(d);
+    list.appendChild(item);
   });
 
   $("total-amount").textContent = fmt(total);
@@ -204,7 +204,6 @@ function bindEvents() {
       id: uid(),
       name,
       category: $("expense-category").value,
-      baseAmount: amount,
       amount
     });
 
@@ -221,8 +220,9 @@ function bindEvents() {
   };
 
   $("budget-target").oninput = e => {
-    state.budgetTargetBase = Number(e.target.value || 0);
-    setCurrency(state.currency);
+    state.budgetTarget = Number(e.target.value || 0);
+    saveState();
+    renderAll();
   };
 
   $("people-count").oninput = e => {
@@ -231,7 +231,7 @@ function bindEvents() {
     renderAll();
   };
 
-  $("currency").onchange = e => setCurrency(e.target.value);
+  $("currency").onchange = e => changeCurrency(e.target.value);
 }
 
 /* ================= INIT ================= */
@@ -244,6 +244,6 @@ function renderAll() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
   bindEvents();
-  setCurrency(state.currency);
+  renderAll();
   window.addEventListener("resize", drawChart);
 });
