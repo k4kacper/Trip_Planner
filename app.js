@@ -12,6 +12,7 @@ const currencyFrom = document.getElementById('currencyFrom');
 const currencyTo = document.getElementById('currencyTo');
 const conversionResult = document.getElementById('conversionResult');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
+const importJsonBtn = document.getElementById('importJsonBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
 const centerMapBtn = document.getElementById('centerMapBtn');
 const expenseChartCtx = document.getElementById('expenseChart').getContext('2d');
@@ -20,10 +21,11 @@ const expenseChartCtx = document.getElementById('expenseChart').getContext('2d')
 let tripData = {
   days: [],
   expenses: [],
-  mapCenter: [52.2297, 21.0122] // Domyślne centrum mapy (Warszawa)
+  mapCenter: [52.2297, 21.0122]
 };
 let map;
 let markers = [];
+let expenseChart;
 
 // --- Load from localStorage ---
 function loadData() {
@@ -53,7 +55,6 @@ function animateElements() {
     ease: "power2.out"
   });
 
-  // Animacja przycisków
   document.querySelectorAll('.btn-animated').forEach(btn => {
     btn.addEventListener('mouseenter', () => {
       gsap.to(btn, { scale: 1.05, duration: 0.2 });
@@ -110,13 +111,19 @@ function renderChart() {
   const labels = Object.keys(categories);
   const data = Object.values(categories);
   const backgroundColors = [
-    'rgba(0, 247, 255, 0.7)',
-    'rgba(255, 0, 255, 0.7)',
+    'rgba(0, 206, 201, 0.7)',
+    'rgba(108, 92, 231, 0.7)',
+    'rgba(253, 121, 168, 0.7)',
     'rgba(255, 200, 0, 0.7)',
-    'rgba(0, 255, 100, 0.7)'
+    'rgba(0, 255, 100, 0.7)',
+    'rgba(100, 100, 255, 0.7)'
   ];
 
-  new Chart(expenseChartCtx, {
+  if (expenseChart) {
+    expenseChart.destroy();
+  }
+
+  expenseChart = new Chart(expenseChartCtx, {
     type: 'doughnut',
     data: {
       labels: labels,
@@ -128,9 +135,17 @@ function renderChart() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           position: 'top',
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.label}: ${context.raw} zł`;
+            }
+          }
         }
       }
     }
@@ -165,7 +180,7 @@ addExpenseBtn.addEventListener('click', () => {
 // --- Currency Converter (ExchangeRate-API) ---
 async function fetchExchangeRates() {
   try {
-    const response = await fetch('https://v6.exchangerate-api.com/v6/YOUR_API_KEY/latest/PLN');
+    const response = await fetch('https://v6.exchangerate-api.com/v6/0850dcfa5ae7acc26979cc76/latest/PLN');
     if (!response.ok) throw new Error("Błąd pobierania kursów walut.");
     return await response.json();
   } catch (error) {
@@ -199,6 +214,35 @@ exportJsonBtn.addEventListener('click', () => {
   linkElement.setAttribute('download', exportFileDefaultName);
   linkElement.click();
   gsap.from(linkElement, { scale: 0.8, opacity: 0, duration: 0.3 });
+});
+
+// --- Import JSON ---
+importJsonBtn.addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        tripData = importedData;
+        saveData();
+        renderDays();
+        renderExpenses();
+        renderChart();
+        initMap();
+        alert("Dane zaimportowane pomyślnie!");
+      } catch (error) {
+        alert("Błąd podczas importu pliku JSON. Sprawdź format pliku.");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 });
 
 // --- Export PDF (jsPDF + html2canvas) ---
@@ -235,7 +279,7 @@ function initMap() {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
 
-  // Dodaj markery dla dni z lokalizacją
+  markers = [];
   tripData.days.forEach(day => {
     if (day.lat && day.lng) {
       const marker = L.marker([day.lat, day.lng]).addTo(map)
@@ -244,7 +288,6 @@ function initMap() {
     }
   });
 
-  // Kliknięcie na mapę dodaje nowy punkt
   map.on('click', (e) => {
     const { lat, lng } = e.latlng;
     const activities = prompt("Wprowadź aktywności dla tego miejsca:");

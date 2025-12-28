@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <!-- GSAP -->
@@ -23,37 +25,37 @@
     <main>
       <section class="trip-plan">
         <h2>Plan podróży</h2>
-        <div class="day-list" id="dayList">
-          <!-- Dni będą dodawane dynamicznie -->
-        </div>
+        <div class="day-list" id="dayList"></div>
         <button id="addDayBtn" class="btn-animated">Dodaj dzień</button>
       </section>
 
-      <section class="map-container">
-        <h2>Mapa</h2>
-        <div id="map" style="height: 300px; border-radius: 10px;"></div>
-        <div class="map-controls">
-          <button id="centerMapBtn" class="btn-animated">Wycentruj mapę</button>
+      <section class="map-budget-container">
+        <div class="map-container">
+          <h2>Mapa</h2>
+          <div id="map"></div>
+          <div class="map-controls">
+            <button id="centerMapBtn" class="btn-animated">Wycentruj mapę</button>
+          </div>
         </div>
-      </section>
 
-      <section class="budget">
-        <h2>Budżet</h2>
-        <div class="expense-form">
-          <input type="text" id="expenseName" placeholder="Nazwa wydatku">
-          <input type="number" id="expenseAmount" placeholder="Kwota">
-          <select id="expenseCategory">
-            <option value="transport">Transport</option>
-            <option value="accommodation">Nocleg</option>
-            <option value="food">Jedzenie</option>
-            <option value="attractions">Atrakcje</option>
-          </select>
-          <button id="addExpenseBtn" class="btn-animated">Dodaj</button>
+        <div class="budget-container">
+          <h2>Budżet</h2>
+          <div class="expense-form">
+            <input type="text" id="expenseName" placeholder="Nazwa wydatku">
+            <input type="number" id="expenseAmount" placeholder="Kwota">
+            <select id="expenseCategory">
+              <option value="transport">Transport</option>
+              <option value="accommodation">Nocleg</option>
+              <option value="food">Jedzenie</option>
+              <option value="attractions">Atrakcje</option>
+            </select>
+            <button id="addExpenseBtn" class="btn-animated">Dodaj</button>
+          </div>
+          <div class="expense-list" id="expenseList"></div>
+          <div class="chart-container">
+            <canvas id="expenseChart"></canvas>
+          </div>
         </div>
-        <div class="expense-list" id="expenseList">
-          <!-- Wydatki będą dodawane dynamicznie -->
-        </div>
-        <canvas id="expenseChart" width="300" height="300"></canvas>
       </section>
 
       <section class="currency-converter">
@@ -97,6 +99,7 @@
 
     <footer>
       <button id="exportJsonBtn" class="btn-animated">Eksportuj JSON</button>
+      <button id="importJsonBtn" class="btn-animated">Importuj JSON</button>
       <button id="exportPdfBtn" class="btn-animated">Eksportuj PDF</button>
     </footer>
   </div>
