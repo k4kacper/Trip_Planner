@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <!-- GSAP -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app-container">
@@ -26,12 +26,15 @@
         <div class="day-list" id="dayList">
           <!-- Dni będą dodawane dynamicznie -->
         </div>
-        <button id="addDayBtn">Dodaj dzień</button>
+        <button id="addDayBtn" class="btn-animated">Dodaj dzień</button>
       </section>
 
       <section class="map-container">
         <h2>Mapa</h2>
         <div id="map" style="height: 300px; border-radius: 10px;"></div>
+        <div class="map-controls">
+          <button id="centerMapBtn" class="btn-animated">Wycentruj mapę</button>
+        </div>
       </section>
 
       <section class="budget">
@@ -45,7 +48,7 @@
             <option value="food">Jedzenie</option>
             <option value="attractions">Atrakcje</option>
           </select>
-          <button id="addExpenseBtn">Dodaj</button>
+          <button id="addExpenseBtn" class="btn-animated">Dodaj</button>
         </div>
         <div class="expense-list" id="expenseList">
           <!-- Wydatki będą dodawane dynamicznie -->
@@ -58,27 +61,43 @@
         <div class="converter-form">
           <input type="number" id="currencyAmount" placeholder="Kwota" value="1">
           <select id="currencyFrom">
-            <option value="PLN">PLN</option>
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
+            <option value="PLN">PLN (Złoty)</option>
+            <option value="EUR">EUR (Euro)</option>
+            <option value="USD">USD (Dolar amerykański)</option>
+            <option value="GBP">GBP (Funt brytyjski)</option>
+            <option value="JPY">JPY (Jen)</option>
+            <option value="CHF">CHF (Frank szwajcarski)</option>
+            <option value="CAD">CAD (Dolar kanadyjski)</option>
+            <option value="AUD">AUD (Dolar australijski)</option>
+            <option value="SEK">SEK (Korona szwedzka)</option>
+            <option value="NOK">NOK (Korona norweska)</option>
+            <option value="CZK">CZK (Korona czeska)</option>
+            <option value="HUF">HUF (Forint)</option>
           </select>
           <span>→</span>
           <select id="currencyTo">
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-            <option value="PLN">PLN</option>
-            <option value="GBP">GBP</option>
+            <option value="EUR">EUR (Euro)</option>
+            <option value="USD">USD (Dolar amerykański)</option>
+            <option value="PLN">PLN (Złoty)</option>
+            <option value="GBP">GBP (Funt brytyjski)</option>
+            <option value="JPY">JPY (Jen)</option>
+            <option value="CHF">CHF (Frank szwajcarski)</option>
+            <option value="CAD">CAD (Dolar kanadyjski)</option>
+            <option value="AUD">AUD (Dolar australijski)</option>
+            <option value="SEK">SEK (Korona szwedzka)</option>
+            <option value="NOK">NOK (Korona norweska)</option>
+            <option value="CZK">CZK (Korona czeska)</option>
+            <option value="HUF">HUF (Forint)</option>
           </select>
-          <button id="convertBtn">Przelicz</button>
+          <button id="convertBtn" class="btn-animated">Przelicz</button>
           <div id="conversionResult"></div>
         </div>
       </section>
     </main>
 
     <footer>
-      <button id="exportJsonBtn">Eksportuj JSON</button>
-      <button id="exportPdfBtn">Eksportuj PDF</button>
+      <button id="exportJsonBtn" class="btn-animated">Eksportuj JSON</button>
+      <button id="exportPdfBtn" class="btn-animated">Eksportuj PDF</button>
     </footer>
   </div>
 

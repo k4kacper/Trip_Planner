@@ -13,6 +13,7 @@ const currencyTo = document.getElementById('currencyTo');
 const conversionResult = document.getElementById('conversionResult');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const exportPdfBtn = document.getElementById('exportPdfBtn');
+const centerMapBtn = document.getElementById('centerMapBtn');
 const expenseChartCtx = document.getElementById('expenseChart').getContext('2d');
 
 // --- Data ---
@@ -21,6 +22,8 @@ let tripData = {
   expenses: [],
   mapCenter: [52.2297, 21.0122] // Domyślne centrum mapy (Warszawa)
 };
+let map;
+let markers = [];
 
 // --- Load from localStorage ---
 function loadData() {
@@ -30,11 +33,9 @@ function loadData() {
     renderDays();
     renderExpenses();
     renderChart();
-    initMap();
-  } else {
-    initMap();
   }
-  gsap.from(".gsap-anim", { opacity: 0, y: 20, duration: 0.8, stagger: 0.2, ease: "power2.out" });
+  initMap();
+  animateElements();
 }
 
 // --- Save to localStorage ---
@@ -42,17 +43,39 @@ function saveData() {
   localStorage.setItem('tripData', JSON.stringify(tripData));
 }
 
+// --- Animate Elements (GSAP) ---
+function animateElements() {
+  gsap.from(".gsap-fade-in", {
+    opacity: 0,
+    y: 20,
+    duration: 0.6,
+    stagger: 0.1,
+    ease: "power2.out"
+  });
+
+  // Animacja przycisków
+  document.querySelectorAll('.btn-animated').forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      gsap.to(btn, { scale: 1.05, duration: 0.2 });
+    });
+    btn.addEventListener('mouseleave', () => {
+      gsap.to(btn, { scale: 1, duration: 0.2 });
+    });
+  });
+}
+
 // --- Render Days ---
 function renderDays() {
   dayList.innerHTML = '';
   tripData.days.forEach((day, index) => {
     const dayItem = document.createElement('div');
-    dayItem.className = 'day-item gsap-anim';
+    dayItem.className = 'day-item gsap-fade-in';
     dayItem.innerHTML = `
       <h3>Dzień ${index + 1}</h3>
       <p>${day.activities || 'Brak aktywności'}</p>
-      <button onclick="editDay(${index})">Edytuj</button>
-      <button onclick="deleteDay(${index})">Usuń</button>
+      <p>${day.lat && day.lng ? `📍 ${day.lat.toFixed(4)}, ${day.lng.toFixed(4)}` : ''}</p>
+      <button onclick="editDay(${index})" class="btn-animated">Edytuj</button>
+      <button onclick="deleteDay(${index})" class="btn-animated">Usuń</button>
     `;
     dayList.appendChild(dayItem);
   });
@@ -63,11 +86,11 @@ function renderExpenses() {
   expenseList.innerHTML = '';
   tripData.expenses.forEach((expense, index) => {
     const expenseItem = document.createElement('div');
-    expenseItem.className = 'expense-item gsap-anim';
+    expenseItem.className = 'expense-item gsap-fade-in';
     expenseItem.innerHTML = `
       <h4>${expense.name}</h4>
       <p>${expense.amount} (${expense.category})</p>
-      <button onclick="deleteExpense(${index})">Usuń</button>
+      <button onclick="deleteExpense(${index})" class="btn-animated">Usuń</button>
     `;
     expenseList.appendChild(expenseItem);
   });
@@ -142,12 +165,17 @@ addExpenseBtn.addEventListener('click', () => {
 // --- Currency Converter (ExchangeRate-API) ---
 async function fetchExchangeRates() {
   try {
-    const response = await fetch('https://v6.exchangerate-api.com/v6/0850dcfa5ae7acc26979cc76/latest/PLN');
+    const response = await fetch('https://v6.exchangerate-api.com/v6/YOUR_API_KEY/latest/PLN');
     if (!response.ok) throw new Error("Błąd pobierania kursów walut.");
     return await response.json();
   } catch (error) {
     alert("Nie udało się pobrać kursów walut. Używam kursów domyślnych.");
-    return { conversion_rates: { PLN: 1, EUR: 0.22, USD: 0.24, GBP: 0.20 } };
+    return {
+      conversion_rates: {
+        PLN: 1, EUR: 0.22, USD: 0.24, GBP: 0.20, JPY: 33.5, CHF: 0.22,
+        CAD: 0.32, AUD: 0.35, SEK: 2.3, NOK: 2.4, CZK: 5.2, HUF: 80
+      }
+    };
   }
 }
 
@@ -158,6 +186,7 @@ convertBtn.addEventListener('click', async () => {
   const rates = await fetchExchangeRates();
   const result = amount * (rates.conversion_rates[to] / rates.conversion_rates[from]);
   conversionResult.textContent = `${amount} ${from} = ${result.toFixed(2)} ${to}`;
+  gsap.from(conversionResult, { opacity: 0, y: 10, duration: 0.3 });
 });
 
 // --- Export JSON ---
@@ -169,6 +198,7 @@ exportJsonBtn.addEventListener('click', () => {
   linkElement.setAttribute('href', dataUri);
   linkElement.setAttribute('download', exportFileDefaultName);
   linkElement.click();
+  gsap.from(linkElement, { scale: 0.8, opacity: 0, duration: 0.3 });
 });
 
 // --- Export PDF (jsPDF + html2canvas) ---
@@ -194,21 +224,23 @@ exportPdfBtn.addEventListener('click', async () => {
   }
 
   pdf.save('trip-plan.pdf');
+  gsap.from(pdf, { opacity: 0, duration: 0.3 });
 });
 
 // --- Map (Leaflet) ---
 function initMap() {
-  const map = L.map('map').setView(tripData.mapCenter, 6);
+  if (map) map.remove();
+  map = L.map('map').setView(tripData.mapCenter, 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
 
-  // Dodaj marker dla każdego dnia, jeśli ma współrzędne
+  // Dodaj markery dla dni z lokalizacją
   tripData.days.forEach(day => {
     if (day.lat && day.lng) {
-      L.marker([day.lat, day.lng]).addTo(map)
-        .bindPopup(`Dzień: ${day.activities}`)
-        .openPopup();
+      const marker = L.marker([day.lat, day.lng]).addTo(map)
+        .bindPopup(`<b>Dzień ${tripData.days.indexOf(day) + 1}</b><br>${day.activities}`);
+      markers.push(marker);
     }
   });
 
@@ -221,20 +253,28 @@ function initMap() {
       tripData.mapCenter = [lat, lng];
       saveData();
       renderDays();
-      map.setView([lat, lng], 10);
-      L.marker([lat, lng]).addTo(map)
-        .bindPopup(`Dzień: ${activities}`)
-        .openPopup();
+      const marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<b>Dzień ${tripData.days.length}</b><br>${activities}`);
+      markers.push(marker);
     }
   });
 }
 
+// --- Center Map ---
+centerMapBtn.addEventListener('click', () => {
+  map.setView(tripData.mapCenter, 10);
+  gsap.from("#map", { opacity: 0.7, duration: 0.5 });
+});
+
 // --- Delete Functions ---
 window.deleteDay = function(index) {
+  if (tripData.days[index].lat && tripData.days[index].lng) {
+    map.removeLayer(markers[index]);
+    markers.splice(index, 1);
+  }
   tripData.days.splice(index, 1);
   saveData();
   renderDays();
-  initMap(); // Odśwież mapę
 };
 
 window.deleteExpense = function(index) {
