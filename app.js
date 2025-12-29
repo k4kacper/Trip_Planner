@@ -373,6 +373,90 @@ centerMapBtn.addEventListener('click', () => {
   gsap.from("#map", { opacity: 0.7, duration: 0.5 });
 });
 
+// --- Edit Day ---
+window.editDay = function(index) {
+  const day = tripData.days[index];
+  dayModal.style.display = 'block';
+  activitiesContainer.innerHTML = '';
+
+  // Wypełnij modal danymi z dnia
+  day.activities.forEach(act => {
+    const activityInput = document.createElement('div');
+    activityInput.className = 'activity-input';
+    activityInput.innerHTML = `
+      <input type="text" placeholder="Nazwa aktywności" class="activity-name" value="${act.name || ''}">
+      <input type="text" placeholder="Godzina (np. 10:00)" class="activity-time" value="${act.time || ''}">
+      <input type="number" placeholder="Koszt (opcjonalnie)" class="activity-cost" value="${act.cost || ''}">
+      <button class="remove-activity">Usuń</button>
+    `;
+    activitiesContainer.appendChild(activityInput);
+    activityInput.querySelector('.remove-activity').addEventListener('click', (e) => {
+      if (activitiesContainer.children.length > 1) {
+        e.target.parentElement.remove();
+      } else {
+        alert("Musisz mieć przynajmniej jedną aktywność!");
+      }
+    });
+  });
+
+  // Zmodyfikuj przycisk "Zapisz dzień", aby aktualizował istniejący dzień
+  const saveDayBtn = document.getElementById('saveDayBtn');
+  saveDayBtn.onclick = function() {
+    const activities = [];
+    document.querySelectorAll('.activity-input').forEach(input => {
+      const name = input.querySelector('.activity-name').value;
+      const time = input.querySelector('.activity-time').value;
+      const cost = input.querySelector('.activity-cost').value;
+      if (name) {
+        activities.push({ name, time, cost });
+      }
+    });
+
+    if (activities.length > 0) {
+      tripData.days[index].activities = activities;
+      saveData();
+      renderDays();
+      dayModal.style.display = 'none';
+    } else {
+      alert("Dodaj przynajmniej jedną aktywność!");
+    }
+  };
+};
+
+addDayBtn.addEventListener('click', () => {
+  dayModal.style.display = 'block';
+  activitiesContainer.innerHTML = `
+    <div class="activity-input">
+      <input type="text" placeholder="Nazwa aktywności" class="activity-name">
+      <input type="text" placeholder="Godzina (np. 10:00)" class="activity-time">
+      <input type="number" placeholder="Koszt (opcjonalnie)" class="activity-cost">
+      <button class="remove-activity">Usuń</button>
+    </div>
+  `;
+  // Reset przycisku "Zapisz dzień" do domyślnego zachowania
+  saveDayBtn.onclick = function() {
+    const activities = [];
+    document.querySelectorAll('.activity-input').forEach(input => {
+      const name = input.querySelector('.activity-name').value;
+      const time = input.querySelector('.activity-time').value;
+      const cost = input.querySelector('.activity-cost').value;
+      if (name) {
+        activities.push({ name, time, cost });
+      }
+    });
+
+    if (activities.length > 0) {
+      tripData.days.push({ activities });
+      saveData();
+      renderDays();
+      dayModal.style.display = 'none';
+    } else {
+      alert("Dodaj przynajmniej jedną aktywność!");
+    }
+  };
+});
+
+
 // --- Delete Functions ---
 window.deleteDay = function(index) {
   if (tripData.days[index].lat && tripData.days[index].lng) {
