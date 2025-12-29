@@ -26,7 +26,7 @@ const activitiesContainer = document.getElementById('activitiesContainer');
 const modalTitle = document.getElementById('modalTitle');
 const themeToggle = document.querySelector('.theme-toggle');
 
-// --- Data ---
+// --- Data & State ---
 let tripData = {
   days: [],
   expenses: [],
@@ -36,6 +36,7 @@ let map;
 let markers = [];
 let expenseChart;
 let currentEditIndex = -1;
+let isEditing = false;
 
 // --- Load from localStorage ---
 function loadData() {
@@ -169,6 +170,7 @@ function renderChart() {
 // --- Add Day (modal) ---
 addDayBtn.addEventListener('click', () => {
   currentEditIndex = -1;
+  isEditing = false;
   modalTitle.textContent = "Dodaj dzień i aktywności";
   dayModal.style.display = 'block';
   activitiesContainer.innerHTML = `
@@ -221,10 +223,11 @@ function saveDayHandler() {
   });
 
   if (activities.length > 0) {
-    if (currentEditIndex === -1) {
-      tripData.days.push({ activities });
-    } else {
+    if (isEditing) {
       tripData.days[currentEditIndex].activities = activities;
+      isEditing = false;
+    } else {
+      tripData.days.push({ activities });
     }
     saveData();
     renderDays();
@@ -237,11 +240,11 @@ function saveDayHandler() {
 // --- Edit Day ---
 window.editDay = function(index) {
   currentEditIndex = index;
+  isEditing = true;
   modalTitle.textContent = "Edytuj dzień i aktywności";
-  const day = tripData.days[index];
   dayModal.style.display = 'block';
   activitiesContainer.innerHTML = '';
-
+  const day = tripData.days[index];
   day.activities.forEach(act => {
     const activityInput = document.createElement('div');
     activityInput.className = 'activity-input';
@@ -285,7 +288,7 @@ addExpenseBtn.addEventListener('click', () => {
   }
 });
 
-// --- Currency Converter (ExchangeRate-API) ---
+// --- Currency Converter ---
 async function fetchExchangeRates() {
   try {
     const response = await fetch('https://v6.exchangerate-api.com/v6/0850dcfa5ae7acc26979cc76/latest/PLN');
@@ -353,7 +356,7 @@ importJsonBtn.addEventListener('click', () => {
   input.click();
 });
 
-// --- Export PDF (jsPDF + html2canvas) ---
+// --- Export PDF ---
 exportPdfBtn.addEventListener('click', async () => {
   const element = document.querySelector('.app-container');
   const canvas = await html2canvas(element, { scale: 2 });
@@ -438,10 +441,10 @@ window.deleteExpense = function(index) {
   renderExpenses();
 };
 
-// --- Theme Toggle ---
+// --- Theme Management ---
 function loadTheme() {
-  const theme = localStorage.getItem('theme');
-  if (theme === 'light') {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
     themeToggle.textContent = '🌙';
   } else {
@@ -450,12 +453,18 @@ function loadTheme() {
   }
 }
 
-themeToggle.addEventListener('click', () => {
+function toggleTheme() {
   document.body.classList.toggle('light-theme');
   const isLight = document.body.classList.contains('light-theme');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
   themeToggle.textContent = isLight ? '🌙' : '☀️';
-});
+  gsap.to("body", {
+    duration: 0.4,
+    opacity: 0.8,
+    onComplete: () => gsap.to("body", { duration: 0.2, opacity: 1 })
+  });
+}
 
 // --- Init ---
+themeToggle.addEventListener('click', toggleTheme);
 loadData();
