@@ -95,6 +95,24 @@
           <div id="conversionResult"></div>
         </div>
       </section>
+
+      <!-- Modal dla dodawania dnia -->
+      <div id="dayModal" class="modal">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <h3>Dodaj dzień i aktywności</h3>
+          <div id="activitiesContainer">
+            <div class="activity-input">
+              <input type="text" placeholder="Nazwa aktywności" class="activity-name">
+              <input type="text" placeholder="Godzina (np. 10:00)" class="activity-time">
+              <input type="number" placeholder="Koszt (opcjonalnie)" class="activity-cost">
+              <button class="remove-activity">Usuń</button>
+            </div>
+          </div>
+          <button id="addActivityBtn" class="btn-animated">+ Dodaj aktywność</button>
+          <button id="saveDayBtn" class="btn-animated">Zapisz dzień</button>
+        </div>
+      </div>
     </main>
 
     <footer>

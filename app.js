@@ -17,6 +17,13 @@ const exportPdfBtn = document.getElementById('exportPdfBtn');
 const centerMapBtn = document.getElementById('centerMapBtn');
 const expenseChartCtx = document.getElementById('expenseChart').getContext('2d');
 
+// Modal elements
+const dayModal = document.getElementById('dayModal');
+const closeModal = document.querySelector('.close');
+const addActivityBtn = document.getElementById('addActivityBtn');
+const saveDayBtn = document.getElementById('saveDayBtn');
+const activitiesContainer = document.getElementById('activitiesContainer');
+
 // --- Data ---
 let tripData = {
   days: [],
@@ -71,9 +78,12 @@ function renderDays() {
   tripData.days.forEach((day, index) => {
     const dayItem = document.createElement('div');
     dayItem.className = 'day-item gsap-fade-in';
+    let activitiesHTML = day.activities.map(act =>
+      `<p><b>${act.time || ''}</b> ${act.name} ${act.cost ? `(${act.cost} zł)` : ''}</p>`
+    ).join('');
     dayItem.innerHTML = `
       <h3>Dzień ${index + 1}</h3>
-      <p>${day.activities || 'Brak aktywności'}</p>
+      ${activitiesHTML}
       <p>${day.lat && day.lng ? `📍 ${day.lat.toFixed(4)}, ${day.lng.toFixed(4)}` : ''}</p>
       <button onclick="editDay(${index})" class="btn-animated">Edytuj</button>
       <button onclick="deleteDay(${index})" class="btn-animated">Usuń</button>
@@ -152,13 +162,63 @@ function renderChart() {
   });
 }
 
-// --- Add Day ---
+// --- Add Day (modal) ---
 addDayBtn.addEventListener('click', () => {
-  const activities = prompt("Wprowadź aktywności na ten dzień:");
-  if (activities) {
+  dayModal.style.display = 'block';
+  activitiesContainer.innerHTML = `
+    <div class="activity-input">
+      <input type="text" placeholder="Nazwa aktywności" class="activity-name">
+      <input type="text" placeholder="Godzina (np. 10:00)" class="activity-time">
+      <input type="number" placeholder="Koszt (opcjonalnie)" class="activity-cost">
+      <button class="remove-activity">Usuń</button>
+    </div>
+  `;
+  activitiesContainer.querySelector('.remove-activity').addEventListener('click', (e) => {
+    if (activitiesContainer.children.length > 1) {
+      e.target.parentElement.remove();
+    } else {
+      alert("Musisz mieć przynajmniej jedną aktywność!");
+    }
+  });
+});
+
+closeModal.addEventListener('click', () => {
+  dayModal.style.display = 'none';
+});
+
+addActivityBtn.addEventListener('click', () => {
+  const newActivity = document.createElement('div');
+  newActivity.className = 'activity-input';
+  newActivity.innerHTML = `
+    <input type="text" placeholder="Nazwa aktywności" class="activity-name">
+    <input type="text" placeholder="Godzina (np. 10:00)" class="activity-time">
+    <input type="number" placeholder="Koszt (opcjonalnie)" class="activity-cost">
+    <button class="remove-activity">Usuń</button>
+  `;
+  activitiesContainer.appendChild(newActivity);
+  newActivity.querySelector('.remove-activity').addEventListener('click', (e) => {
+    e.target.parentElement.remove();
+  });
+});
+
+saveDayBtn.addEventListener('click', () => {
+  const activities = [];
+  document.querySelectorAll('.activity-input').forEach(input => {
+    const name = input.querySelector('.activity-name').value;
+    const time = input.querySelector('.activity-time').value;
+    const cost = input.querySelector('.activity-cost').value;
+    if (name) {
+      activities.push({ name, time, cost });
+    }
+  });
+
+  if (activities.length > 0) {
     tripData.days.push({ activities });
     saveData();
     renderDays();
+    dayModal.style.display = 'none';
+  } else {
+    alert("Dodaj przynajmniej jedną aktywność!");
   }
 });
 
@@ -283,21 +343,25 @@ function initMap() {
   tripData.days.forEach(day => {
     if (day.lat && day.lng) {
       const marker = L.marker([day.lat, day.lng]).addTo(map)
-        .bindPopup(`<b>Dzień ${tripData.days.indexOf(day) + 1}</b><br>${day.activities}`);
+        .bindPopup(`<b>Dzień ${tripData.days.indexOf(day) + 1}</b><br>${day.activities.map(a => a.name).join('<br>')}`);
       markers.push(marker);
     }
   });
 
   map.on('click', (e) => {
     const { lat, lng } = e.latlng;
-    const activities = prompt("Wprowadź aktywności dla tego miejsca:");
-    if (activities) {
+    const activities = [];
+    const name = prompt("Wprowadź nazwę aktywności dla tego miejsca:");
+    if (name) {
+      const time = prompt("Wprowadź godzinę (np. 10:00):");
+      const cost = prompt("Wprowadź koszt (opcjonalnie):");
+      activities.push({ name, time, cost });
       tripData.days.push({ activities, lat, lng });
       tripData.mapCenter = [lat, lng];
       saveData();
       renderDays();
       const marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`<b>Dzień ${tripData.days.length}</b><br>${activities}`);
+        .bindPopup(`<b>Dzień ${tripData.days.length}</b><br>${name}`);
       markers.push(marker);
     }
   });
